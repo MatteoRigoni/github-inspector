@@ -202,12 +202,14 @@ export default function Home() {
       <div className="min-h-screen bg-zinc-50 dark:bg-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
-          <div className="mb-10 flex items-center justify-between">
-            <h1 className="text-4xl font-bold text-black dark:text-zinc-50">
-              Dashboard
-            </h1>
-          </div>
-
+          <div className="mb-8">
+          <h1 className="text-3xl font-semibold text-black dark:text-zinc-50">
+            Dashboard
+          </h1>
+          <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+            Manage and monitor your API keys: create, edit, track usage, and view statistics for seamless access control.
+          </p>
+        </div>
           {/* Statistics Widget */}
           <div className="mb-10 relative rounded-xl overflow-hidden bg-gradient-to-br from-orange-400 via-pink-500 to-purple-600 p-5 shadow-2xl">
             <div className="absolute inset-0 bg-black/20"></div>

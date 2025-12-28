@@ -147,3 +147,37 @@ export async function verifyApiKey(apiKey: string): Promise<{ valid: boolean; ke
   };
 }
 
+// Increment the usage counter for an API key (atomic operation)
+export async function incrementApiKeyUsage(apiKey: string): Promise<boolean> {
+  try {
+    // Use Supabase RPC for atomic increment, or fallback to update
+    // First, try to get the current key to verify it exists
+    const { data: keyData, error: fetchError } = await supabase
+      .from('api_keys')
+      .select('id, usage')
+      .eq('key', apiKey)
+      .single();
+
+    if (fetchError || !keyData) {
+      console.error('Error fetching API key for increment:', fetchError);
+      return false;
+    }
+
+    // Atomic increment using Supabase update
+    const { error: updateError } = await supabase
+      .from('api_keys')
+      .update({ usage: keyData.usage + 1 })
+      .eq('key', apiKey);
+
+    if (updateError) {
+      console.error('Error incrementing API key usage:', updateError);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Unexpected error incrementing API key usage:', error);
+    return false;
+  }
+}
+

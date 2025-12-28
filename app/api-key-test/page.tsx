@@ -53,7 +53,7 @@ export default function ApiKeyTestPage() {
               API Key Test
             </h1>
             <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-              Verifica la validità di un API key e controlla il consumo rimanente
+              Verify the validity of an API key and check the remaining quota
             </p>
           </div>
 
@@ -71,7 +71,7 @@ export default function ApiKeyTestPage() {
                   type="text"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Inserisci l'API key da verificare"
+                  placeholder="Insert the string API key to verify"
                   className="w-full px-4 py-3 border border-black/[.08] dark:border-white/[.145] rounded-lg bg-white dark:bg-black text-black dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   disabled={loading}
                 />
