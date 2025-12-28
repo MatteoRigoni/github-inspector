@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import AppLayout from "./components/AppLayout";
 import { useToast } from "./components/ToastProvider";
 
@@ -15,6 +17,8 @@ interface ApiKey {
 }
 
 export default function Home() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -30,6 +34,13 @@ export default function Home() {
   const [filterType, setFilterType] = useState<string>("all");
   const [filterUsage, setFilterUsage] = useState<string>("all");
   const { showSuccess } = useToast();
+
+  // Redirect to sign-in if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/auth/signin");
+    }
+  }, [status, router]);
 
   useEffect(() => {
     fetchApiKeys();
@@ -196,6 +207,25 @@ export default function Home() {
   });
 
   const hasActiveFilters = searchQuery !== "" || filterType !== "all" || filterUsage !== "all";
+
+  // Show loading state while checking authentication
+  if (status === "loading") {
+    return (
+      <AppLayout>
+        <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-zinc-300 dark:border-zinc-600 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-zinc-600 dark:text-zinc-400">Loading...</p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Don't render content if not authenticated (will redirect)
+  if (status === "unauthenticated" || !session) {
+    return null;
+  }
 
   return (
     <AppLayout>
