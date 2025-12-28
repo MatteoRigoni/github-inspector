@@ -82,38 +82,6 @@
 
 ---
 
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│              Client (React/Next.js)             │
-│  ┌──────────────┐  ┌──────────────┐            │
-│  │  Dashboard   │  │ GitHub       │            │
-│  │  (API Keys)  │  │ Inspector   │            │
-│  └──────┬───────┘  └──────┬───────┘            │
-└─────────┼──────────────────┼───────────────────┘
-          │                  │
-          ▼                  ▼
-┌─────────────────────────────────────────────────┐
-│         Next.js API Routes (Serverless)          │
-│  ┌──────────────┐  ┌──────────────┐            │
-│  │ /api/api-    │  │ /api/github/ │            │
-│  │   keys       │  │   summarize  │            │
-│  └──────┬───────┘  └──────┬───────┘            │
-└─────────┼──────────────────┼───────────────────┘
-          │                  │
-          ▼                  ▼
-┌─────────────────────────────────────────────────┐
-│              External Services                   │
-│  ┌──────────────┐  ┌──────────────┐            │
-│  │  Supabase    │  │   OpenAI     │            │
-│  │  (PostgreSQL)│  │   (GPT-4)    │            │
-│  └──────────────┘  └──────────────┘            │
-└─────────────────────────────────────────────────┘
-```
-
----
-
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -192,37 +160,6 @@ github-inspector/
 
 ---
 
-## 🔒 Security Features
-
-- **Row Level Security (RLS)** - Database-level access control
-- **API Key Validation** - Server-side verification on every request
-- **Credit Quota Enforcement** - Prevents abuse through usage tracking
-- **Secure Session Management** - JWT-based authentication
-- **Input Validation** - Type-safe API endpoints with Zod
-
----
-
-## 🎨 UI/UX Highlights
-
-- **Responsive Design** - Mobile-first approach with Tailwind CSS
-- **Dark Mode Support** - Seamless theme switching
-- **Real-Time Updates** - Live credit usage tracking
-- **Intuitive Navigation** - Collapsible sidebar with active state indicators
-- **Toast Notifications** - User-friendly feedback system
-- **Loading States** - Skeleton screens and progress indicators
-
----
-
-## 📊 Key Metrics & Analytics
-
-- Total API keys created
-- Credit consumption tracking
-- Usage statistics by environment (dev/prod)
-- Plan-based quota management
-- Lifetime usage tracking (prevents quota abuse)
-
----
-
 ## 🔮 Future Enhancements
 
 - [ ] Payment integration for plan upgrades
@@ -231,34 +168,3 @@ github-inspector/
 - [ ] Export functionality for reports
 - [ ] Webhook support for real-time updates
 - [ ] Multi-language support
-
----
-
-## 📝 License
-
-This project is private and proprietary.
-
----
-
-## 👨‍💻 Developer
-
-Built with ❤️ using modern web technologies and best practices.
-
-**Tech Stack Highlights:**
-- Full-stack TypeScript development
-- Serverless architecture with Next.js
-- AI integration with LangChain and OpenAI
-- Modern React patterns (Hooks, Server Components)
-- Database design with Supabase
-- RESTful API design
-- Secure authentication flows
-
----
-
-<div align="center">
-
-**Built with modern technologies for scalable, maintainable code**
-
-[Next.js](https://nextjs.org/) • [TypeScript](https://www.typescriptlang.org/) • [React](https://react.dev/) • [Supabase](https://supabase.com/) • [OpenAI](https://openai.com/)
-
-</div>
