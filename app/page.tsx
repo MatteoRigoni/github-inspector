@@ -33,6 +33,11 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterUsage, setFilterUsage] = useState<string>("all");
+  const [userPlan, setUserPlan] = useState<{
+    plan: string;
+    used_credits: number;
+    total_credits: number;
+  } | null>(null);
   const { showSuccess } = useToast();
 
   // Redirect to sign-in if not authenticated
@@ -44,7 +49,23 @@ export default function Home() {
 
   useEffect(() => {
     fetchApiKeys();
+    fetchUserPlan();
   }, []);
+
+  const fetchUserPlan = async () => {
+    try {
+      const response = await fetch("/api/users/me");
+      if (!response.ok) return;
+      const data = await response.json();
+      setUserPlan({
+        plan: data.plan || 'free',
+        used_credits: data.used_credits || 0,
+        total_credits: data.total_credits || 5,
+      });
+    } catch (err) {
+      console.error("Error fetching user plan:", err);
+    }
+  };
 
   const fetchApiKeys = async () => {
     try {
@@ -67,6 +88,21 @@ export default function Home() {
       return;
     }
 
+    if (userPlan) {
+      const availableCredits = userPlan.total_credits - userPlan.used_credits;
+      const planLimit = userPlan.plan === 'free' ? 5 : userPlan.plan === 'starter' ? 100 : 1000;
+      
+      if (formMonthlyLimit > planLimit) {
+        setError(`Il limite della API key non può superare il limite del tuo piano (${planLimit} credits)`);
+        return;
+      }
+      
+      if (formMonthlyLimit > availableCredits) {
+        setError(`Crediti insufficienti. Disponibili: ${availableCredits}, Richiesti: ${formMonthlyLimit}`);
+        return;
+      }
+    }
+
     try {
       const response = await fetch("/api/api-keys", {
         method: "POST",
@@ -74,14 +110,18 @@ export default function Home() {
         body: JSON.stringify({ name: formName, type: formType, monthlyLimit: formMonthlyLimit }),
       });
 
-      if (!response.ok) throw new Error("Failed to create API key");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create API key");
+      }
       
       setFormName("");
       setFormType("dev");
-      setFormMonthlyLimit(1000);
+      setFormMonthlyLimit(userPlan ? Math.min(5, userPlan.total_credits - userPlan.used_credits) : 5);
       setShowCreateModal(false);
       setError(null);
       fetchApiKeys();
+      fetchUserPlan(); // Refresh user plan to update credits
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create API key");
     }
@@ -154,7 +194,7 @@ export default function Home() {
     setViewingKey(null);
     setFormName("");
     setFormType("dev");
-    setFormMonthlyLimit(1000);
+    setFormMonthlyLimit(userPlan ? Math.min(5, userPlan.total_credits - userPlan.used_credits) : 5);
     setError(null);
   };
 
@@ -173,18 +213,17 @@ export default function Home() {
     return `${prefix}${"*".repeat(Math.max(20, key.length - 8))}`;
   };
 
-  // Calculate total usage and limits
-  const totalUsage = apiKeys.reduce((sum, key) => sum + key.usage, 0);
-  const totalLimit = apiKeys.reduce((sum, key) => sum + key.monthlyLimit, 0);
-  const usagePercentage = totalLimit > 0 ? Math.min((totalUsage / totalLimit) * 100, 100) : 0;
-
   // Calculate statistics by type
   const devKeys = apiKeys.filter(key => key.type === 'dev');
   const prodKeys = apiKeys.filter(key => key.type === 'prod');
   const devUsage = devKeys.reduce((sum, key) => sum + key.usage, 0);
-  const devLimit = devKeys.reduce((sum, key) => sum + key.monthlyLimit, 0);
   const prodUsage = prodKeys.reduce((sum, key) => sum + key.usage, 0);
-  const prodLimit = prodKeys.reduce((sum, key) => sum + key.monthlyLimit, 0);
+  
+  // Calculate credits usage from user plan
+  const creditsUsage = userPlan ? userPlan.used_credits : 0;
+  const creditsTotal = userPlan ? userPlan.total_credits : 0;
+  const creditsPercentage = creditsTotal > 0 ? Math.min((creditsUsage / creditsTotal) * 100, 100) : 0;
+  const availableCredits = creditsTotal - creditsUsage;
 
   // Filter API keys
   const filteredApiKeys = apiKeys.filter((key) => {
@@ -233,127 +272,78 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="mb-8">
-          <h1 className="text-3xl font-semibold text-black dark:text-zinc-50">
-            Dashboard
-          </h1>
-          <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-            Manage and monitor your API keys: create, edit, track usage, and view statistics for seamless access control.
-          </p>
-        </div>
-          {/* Statistics Widget */}
-          <div className="mb-10 relative rounded-xl overflow-hidden bg-gradient-to-br from-orange-400 via-pink-500 to-purple-600 p-5 shadow-2xl">
-            <div className="absolute inset-0 bg-black/20"></div>
-            <div className="relative z-10">
-              {/* Statistics Summary */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-4 h-4 text-white/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                    </svg>
-                    <div className="text-white/95 text-xs uppercase tracking-wide">Total Keys</div>
+            <h1 className="text-3xl font-semibold text-black dark:text-zinc-50">
+              Dashboard
+            </h1>
+            <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+              Manage and monitor your API keys: create, edit, track usage, and view statistics for seamless access control.
+            </p>
+          </div>
+
+          {/* Plan Widget - Combined with Statistics */}
+          {userPlan && (
+            <div 
+              onClick={() => router.push("/pricing")}
+              className="mb-10 cursor-pointer relative rounded-xl overflow-hidden bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-6 shadow-xl hover:shadow-2xl transition-all"
+            >
+              <div className="absolute inset-0 bg-black/10"></div>
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="px-3 py-1 text-sm font-bold rounded-full bg-white/20 backdrop-blur-sm text-white uppercase">
+                        {userPlan.plan} Plan
+                      </span>
+                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-1">Credits Overview</h2>
                   </div>
-                  <div className="text-xl font-bold text-white">{apiKeys.length}</div>
+                  <svg className="w-5 h-5 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
-                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-4 h-4 text-white/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <div className="text-white/95 text-xs uppercase tracking-wide">Credits Used</div>
+
+                {/* Main Stats - Compact Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                    <div className="text-white/80 text-xs uppercase tracking-wide mb-1">Total Keys</div>
+                    <div className="text-xl font-bold text-white">{apiKeys.length}</div>
                   </div>
-                  <div className="text-xl font-bold text-white">{totalUsage.toLocaleString()}</div>
-                  <div className="text-white/60 text-xs mt-0.5">of {totalLimit.toLocaleString()}</div>
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                    <div className="text-white/80 text-xs uppercase tracking-wide mb-1">Credits</div>
+                    <div className="text-xl font-bold text-white">{creditsUsage} / {creditsTotal}</div>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                    <div className="text-white/80 text-xs uppercase tracking-wide mb-1">Development</div>
+                    <div className="text-lg font-bold text-white">{devKeys.length} keys</div>
+                    <div className="text-white/60 text-xs">{devUsage} credits</div>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                    <div className="text-white/80 text-xs uppercase tracking-wide mb-1">Production</div>
+                    <div className="text-lg font-bold text-white">{prodKeys.length} keys</div>
+                    <div className="text-white/60 text-xs">{prodUsage} credits</div>
+                  </div>
                 </div>
-                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-4 h-4 text-white/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <div className="text-white/95 text-xs uppercase tracking-wide">Usage %</div>
+
+                {/* Progress Bar */}
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-sm text-white/90 mb-2">
+                    <span>Usage Progress</span>
+                    <span>{creditsPercentage.toFixed(1)}%</span>
                   </div>
-                  <div className="text-xl font-bold text-white mb-2">{usagePercentage.toFixed(1)}%</div>
                   <div className="w-full bg-white/20 rounded-full h-2">
                     <div 
                       className={`h-2 rounded-full transition-all ${
-                        usagePercentage >= 90 ? 'bg-red-300' : 
-                        usagePercentage >= 70 ? 'bg-yellow-300' : 
+                        creditsPercentage >= 90 ? 'bg-red-300' : 
+                        creditsPercentage >= 70 ? 'bg-yellow-300' : 
                         'bg-green-300'
                       }`}
-                      style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+                      style={{ width: `${Math.min(creditsPercentage, 100)}%` }}
                     ></div>
-                  </div>
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-4 h-4 text-white/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div className="text-white/95 text-xs uppercase tracking-wide">Available</div>
-                  </div>
-                  <div className="text-xl font-bold text-white">{(totalLimit - totalUsage).toLocaleString()}</div>
-                </div>
-              </div>
-
-              {/* Usage by Type */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 min-h-[100px]">
-                  <div className="text-white/95 text-xs uppercase tracking-wide mb-1.5">Development</div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-white/90">Keys</span>
-                      <span className="text-white font-medium">{devKeys.length}</span>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-white/90">Usage</span>
-                        <span className="text-white font-medium">{devUsage.toLocaleString()} / {devLimit.toLocaleString()}</span>
-                      </div>
-                      {devLimit > 0 && (
-                        <div className="w-full bg-white/20 rounded-full h-1.5">
-                          <div 
-                            className={`h-1.5 rounded-full transition-all ${
-                              (devUsage / devLimit) >= 0.9 ? 'bg-red-300' : 
-                              (devUsage / devLimit) >= 0.7 ? 'bg-yellow-300' : 
-                              'bg-green-300'
-                            }`}
-                            style={{ width: `${Math.min((devUsage / devLimit) * 100, 100)}%` }}
-                          ></div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 min-h-[100px]">
-                  <div className="text-white/95 text-xs uppercase tracking-wide mb-1.5">Production</div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-white/90">Keys</span>
-                      <span className="text-white font-medium">{prodKeys.length}</span>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-white/90">Usage</span>
-                        <span className="text-white font-medium">{prodUsage.toLocaleString()} / {prodLimit.toLocaleString()}</span>
-                      </div>
-                      {prodLimit > 0 && (
-                        <div className="w-full bg-white/20 rounded-full h-1.5">
-                          <div 
-                            className={`h-1.5 rounded-full transition-all ${
-                              (prodUsage / prodLimit) >= 0.9 ? 'bg-red-300' : 
-                              (prodUsage / prodLimit) >= 0.7 ? 'bg-yellow-300' : 
-                              'bg-green-300'
-                            }`}
-                            style={{ width: `${Math.min((prodUsage / prodLimit) * 100, 100)}%` }}
-                          ></div>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* API Keys Section */}
           <div className="mb-10">
@@ -687,21 +677,42 @@ export default function Home() {
                     </select>
                   </div>
                   <div className="mb-4">
-                    <label
-                      htmlFor="create-limit"
-                      className="block text-sm font-medium text-black dark:text-zinc-50 mb-2"
-                    >
-                      Monthly Limit
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label
+                        htmlFor="create-limit"
+                        className="block text-sm font-medium text-black dark:text-zinc-50"
+                      >
+                        Monthly Limit (Credits)
+                      </label>
+                      {userPlan && (
+                        <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                          Available: {userPlan.total_credits - userPlan.used_credits} credits
+                        </span>
+                      )}
+                    </div>
                     <input
                       id="create-limit"
                       type="number"
                       min="1"
+                      max={userPlan ? userPlan.total_credits - userPlan.used_credits : undefined}
                       value={formMonthlyLimit}
-                      onChange={(e) => setFormMonthlyLimit(Number(e.target.value))}
+                      onChange={(e) => {
+                        const value = Number(e.target.value);
+                        const max = userPlan ? userPlan.total_credits - userPlan.used_credits : undefined;
+                        if (max && value > max) {
+                          setFormMonthlyLimit(max);
+                        } else {
+                          setFormMonthlyLimit(value);
+                        }
+                      }}
                       className="w-full px-4 py-2 rounded-lg border border-black/[.08] dark:border-white/[.145] bg-white dark:bg-black text-black dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                      placeholder="1000"
+                      placeholder="Enter credits limit"
                     />
+                    {userPlan && (
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+                        Plan limit: {userPlan.plan === 'free' ? 5 : userPlan.plan === 'starter' ? 100 : 1000} credits
+                      </p>
+                    )}
                   </div>
                   <div className="flex gap-3 justify-end">
                     <button

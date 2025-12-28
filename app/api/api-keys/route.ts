@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { getAllKeys, createKey } from "./store";
 
 export async function GET() {
   try {
-    const keys = await getAllKeys();
+    // Ottieni la sessione dell'utente
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+
+    // Filtra le API keys per utente se autenticato
+    const keys = await getAllKeys(userId);
     return NextResponse.json(keys);
   } catch (error) {
     console.error('Error in GET /api/api-keys:', error);
@@ -16,6 +23,16 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Ottieni la sessione dell'utente
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { name, type, monthlyLimit } = body;
 
@@ -26,7 +43,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newKey = await createKey(name, type, monthlyLimit);
+    // Crea la chiave associata all'utente
+    const newKey = await createKey(name, type, monthlyLimit, session.user.id);
     return NextResponse.json(newKey, { status: 201 });
   } catch (error) {
     console.error('Error in POST /api/api-keys:', error);
